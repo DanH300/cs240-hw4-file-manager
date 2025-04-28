@@ -1,4 +1,4 @@
 2
-file1.txt
-file2.txt
-test_commands.txt
+./hw4/file00.in
+./hw4/file01.in
+./hw4/command00.in
