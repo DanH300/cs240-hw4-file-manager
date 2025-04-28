@@ -25,6 +25,9 @@ Thumbs.db
 # Archivos de prueba que no sean esenciales
 input.txt
 
+# Archivos específicos para el asistente
+PROMPT.md
+
 # Archivos de documentación PDFs (si son muy grandes)
 # Descomenta la siguiente línea si no quieres incluir los PDFs
-# Documentation/*.pdf 
+Documentation/*.pdf 
