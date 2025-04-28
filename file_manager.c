@@ -167,7 +167,7 @@ void remove_string(File *files, int file_count, char *remove_str) {
                 
                 if (new_content) {
                     int new_idx = 0;
-                    int k = 0;
+                    size_t k = 0;  // Cambiado a size_t para coincidir con line_len
                     
                     // Check each character position
                     while (k < line_len) {
@@ -251,11 +251,17 @@ void execute_commands(char *command_file_path, File *files, int file_count) {
     
     while ((line = read_line(cmd_fp)) != NULL) {
         // Parse command
-        sscanf(line, "%s", command);
+        if (sscanf(line, "%s", command) < 1) {
+            free(line);
+            continue;
+        }
         
         if (strcmp(command, "PRINT") == 0) {
             int idx;
-            sscanf(line, "%*s %d", &idx);
+            if (sscanf(line, "%*s %d", &idx) < 1) {
+                free(line);
+                continue;
+            }
             if (idx >= 0 && idx < file_count) {
                 print_file(files + idx);
             }
@@ -263,7 +269,10 @@ void execute_commands(char *command_file_path, File *files, int file_count) {
             print_all_files(files, file_count);
         } else if (strcmp(command, "PRINT_LONGEST") == 0) {
             int idx;
-            sscanf(line, "%*s %d", &idx);
+            if (sscanf(line, "%*s %d", &idx) < 1) {
+                free(line);
+                continue;
+            }
             if (idx >= 0 && idx < file_count) {
                 print_longest_string(files + idx);
             }
@@ -276,12 +285,19 @@ void execute_commands(char *command_file_path, File *files, int file_count) {
                 continue;
             }
             memset(search_str, 0, MAX_LINE_LENGTH * sizeof(char));
-            sscanf(line, "%*s %s", search_str);
+            if (sscanf(line, "%*s %s", search_str) < 1) {
+                free(search_str);
+                free(line);
+                continue;
+            }
             search_string(files, file_count, search_str);
             free(search_str);
         } else if (strcmp(command, "SORT") == 0) {
             int idx;
-            sscanf(line, "%*s %d", &idx);
+            if (sscanf(line, "%*s %d", &idx) < 1) {
+                free(line);
+                continue;
+            }
             if (idx >= 0 && idx < file_count) {
                 sort_file(files + idx);
             }
@@ -292,12 +308,19 @@ void execute_commands(char *command_file_path, File *files, int file_count) {
                 continue;
             }
             memset(remove_str, 0, MAX_LINE_LENGTH * sizeof(char));
-            sscanf(line, "%*s %s", remove_str);
+            if (sscanf(line, "%*s %s", remove_str) < 1) {
+                free(remove_str);
+                free(line);
+                continue;
+            }
             remove_string(files, file_count, remove_str);
             free(remove_str);
         } else if (strcmp(command, "APPEND") == 0) {
             int idx1, idx2;
-            sscanf(line, "%*s %d %d", &idx1, &idx2);
+            if (sscanf(line, "%*s %d %d", &idx1, &idx2) < 2) {
+                free(line);
+                continue;
+            }
             if (idx1 >= 0 && idx1 < file_count && idx2 >= 0 && idx2 < file_count) {
                 append_files(files, idx1, idx2);
             }
@@ -312,7 +335,10 @@ void execute_commands(char *command_file_path, File *files, int file_count) {
 
 int main() {
     int file_count;
-    scanf("%d\n", &file_count);
+    if (scanf("%d\n", &file_count) != 1) {
+        fprintf(stderr, "Error reading file count\n");
+        return 1;
+    }
     
     File *files = malloc(file_count * sizeof(File));
     if (!files) {
@@ -331,7 +357,16 @@ int main() {
             return 1;
         }
         
-        fgets(path, MAX_PATH_LENGTH, stdin);
+        if (fgets(path, MAX_PATH_LENGTH, stdin) == NULL) {
+            fprintf(stderr, "Error reading file path %d\n", i + 1);
+            free(path);
+            for (int j = 0; j < i; j++) {
+                free((files + j)->path);
+            }
+            free(files);
+            return 1;
+        }
+        
         size_t len = strlen(path);
         if (len > 0 && *(path + len - 1) == '\n') {
             *(path + len - 1) = '\0';
@@ -353,7 +388,16 @@ int main() {
         return 1;
     }
     
-    fgets(command_file_path, MAX_PATH_LENGTH, stdin);
+    if (fgets(command_file_path, MAX_PATH_LENGTH, stdin) == NULL) {
+        fprintf(stderr, "Error reading command file path\n");
+        free(command_file_path);
+        for (int i = 0; i < file_count; i++) {
+            free((files + i)->path);
+        }
+        free(files);
+        return 1;
+    }
+    
     size_t len = strlen(command_file_path);
     if (len > 0 && *(command_file_path + len - 1) == '\n') {
         *(command_file_path + len - 1) = '\0';
@@ -361,7 +405,9 @@ int main() {
     
     // Read file contents
     for (int i = 0; i < file_count; i++) {
-        read_file_content(files + i);
+        if (!read_file_content(files + i)) {
+            fprintf(stderr, "Error reading content of file %s\n", (files + i)->path);
+        }
     }
     
     // Execute commands
