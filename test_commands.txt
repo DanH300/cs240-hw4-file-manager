@@ -1,0 +1,29 @@
+# Print content
+PRINT 0
+PRINT 1
+
+# Print all
+PRINT_ALL
+
+# Find longest string
+PRINT_LONGEST 0
+PRINT_LONGEST 1
+
+# Find file with most lines
+PRINT_LONGEST_FILE
+
+# Search for text
+SEARCH World
+SEARCH CS240
+
+# Sort lines of a file
+SORT 0
+PRINT 0
+
+# Remove text
+REMOVE CS240
+PRINT 1
+
+# Concatenate files
+APPEND 0 1
+PRINT 0 

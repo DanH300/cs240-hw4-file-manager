@@ -1,0 +1,30 @@
+# Archivos compilados
+program
+*.o
+*.out
+*.exe
+
+# Archivos del sistema
+.DS_Store
+Thumbs.db
+
+# Archivos temporales
+*.tmp
+*.swp
+*~
+
+# Archivos de IDE
+.vscode/
+.idea/
+*.iml
+
+# Archivos de configuración local que podrían contener información sensible
+*.env
+*.config
+
+# Archivos de prueba que no sean esenciales
+input.txt
+
+# Archivos de documentación PDFs (si son muy grandes)
+# Descomenta la siguiente línea si no quieres incluir los PDFs
+# Documentation/*.pdf 
