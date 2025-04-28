@@ -1,261 +1,144 @@
-# File Manager - Implementation Guide
+# Notas de Implementación
 
-## English Version
+Este documento contiene mis notas sobre la implementación del administrador de archivos.
 
-### Understanding the Assignment
+## Diseño de Estructura de Datos
 
-This assignment challenges you to create a file management system that can read multiple text files and perform various operations on them. The key constraint is that you must implement this using **only pointers** - no array bracket notation allowed. This restriction serves as an excellent opportunity to develop a deeper understanding of C memory management and pointer arithmetic.
+Para este proyecto, creé dos estructuras principales:
 
-### Core Requirements
-
-1. **File Input**: Read files from stdin and store their contents in memory
-2. **Command Processing**: Execute commands from a specified command file
-3. **Pointer-Only Implementation**: No array bracket notation (`[]`) allowed anywhere in the code
-4. **Operation Implementation**: Implement functions for printing, searching, sorting, removing text, and concatenating files
-
-### Implementation Approach
-
-#### Data Structure Design
-
-For this solution, I've designed two primary structures:
-
-```c
-typedef struct {
-    char *content;
-    size_t length;
-} Line;
-
-typedef struct {
-    char *path;
-    Line *lines;
-    int line_count;
-} File;
-```
-
-This design offers several advantages:
-- Each line's content and length are encapsulated together
-- Lines belonging to the same file are grouped logically
-- File metadata (path, line count) is easily accessible
-
-#### Memory Management Techniques
-
-Memory management is particularly challenging when restricted to pointers:
-
-1. **Dynamic Memory Allocation**: You'll need to allocate memory for file paths, line arrays, and line content
-2. **Pointer Arithmetic**: Instead of the familiar `array[i]`, you must use expressions like `*(array + i)` or `array + i`
-3. **Proper Cleanup**: To prevent memory leaks, carefully free all allocated memory
-
-A typical pattern for accessing line content looks like this:
-```c
-Line *current_line = (files + i)->lines + j;
-char *line_content = current_line->content;
-```
-
-Students often struggle with this syntax initially, but it becomes more intuitive with practice.
-
-#### Command Implementation Strategies
-
-Each command is implemented as a dedicated function:
-
-- **PRINT/PRINT_ALL**: Iterate through files/lines and output with appropriate separators
-- **PRINT_LONGEST**: Traverse lines to find the one with maximum length
-- **PRINT_LONGEST_FILE**: Compare line counts across files
-- **SEARCH**: Use `strstr()` to locate substrings within content
-- **SORT**: Leverage `qsort()` with a custom comparator
-- **REMOVE**: Create new strings with occurrences removed
-- **APPEND**: Combine file contents with careful memory reallocation
-
-### Testing Guidelines
-
-Follow these steps to thoroughly test your implementation:
-
-1. **Compilation**:
-   ```bash
-   gcc file_manager.c -o program
+1. `Line`: Para almacenar cada línea de texto y su longitud.
+   ```c
+   typedef struct {
+       char* text;
+       int length;
+   } Line;
    ```
 
-2. **Test File Preparation**:
-   - Create text files with varied content and line lengths
-   - Prepare a command file with a range of operations to test
+2. `File`: Para almacenar el nombre del archivo y un array de punteros a `Line`.
+   ```c
+   typedef struct {
+       char* name;
+       Line** lines;
+       int numLines;
+       int maxLines;
+   } File;
+   ```
 
-3. **Execution Methods**:
+Decidí usar punteros a punteros (`Line**`) para el array de líneas porque necesitaba realocar memoria dinámicamente a medida que añadía más líneas, y era más fácil hacerlo así.
+
+## Gestión de Memoria
+
+La gestión de memoria fue uno de los aspectos más desafiantes de este proyecto. Tuve que asegurarme de:
+
+1. Asignar memoria dinámicamente para cada estructura y cadena de caracteres:
+   ```c
+   File* file = (File*) malloc(sizeof(File));
+   file->name = strdup(fileName); // Usa strdup para crear una copia de la cadena
+   file->lines = (Line**) malloc(sizeof(Line*) * INITIAL_CAPACITY);
+   ```
+
+2. Liberar toda la memoria asignada para evitar fugas de memoria:
+   ```c
+   void freeFile(File* file) {
+       if (file == NULL) return;
+       
+       // Liberar cada línea
+       for (int i = 0; i < file->numLines; i++) {
+           free(file->lines[i]->text);
+           free(file->lines[i]);
+       }
+       
+       // Liberar el nombre y el array de líneas
+       free(file->name);
+       free(file->lines);
+       free(file);
+   }
+   ```
+
+Es muy importante liberar la memoria en el orden correcto: primero el contenido interno (texto de las líneas), luego las estructuras de línea, y finalmente la estructura del archivo.
+
+## Implementación de Comandos
+
+Implementé cada comando como una función separada para hacer el código más modular y fácil de depurar:
+
+1. `printFile`: Imprime todas las líneas de un archivo específico.
+2. `printAll`: Imprime todas las líneas de todos los archivos.
+3. `printLongest`: Encuentra e imprime la línea más larga de un archivo.
+4. `printLongestFile`: Encuentra e imprime el nombre del archivo con más líneas.
+5. `searchString`: Busca una cadena en todos los archivos e imprime las líneas que la contienen.
+6. `sortFile`: Ordena las líneas de un archivo alfabéticamente.
+7. `removeString`: Elimina todas las ocurrencias de una cadena de todos los archivos.
+8. `appendFile`: Añade el contenido de un archivo a otro.
+
+La implementación más interesante fue `sortFile`, donde tuve que implementar un algoritmo de ordenación:
+
+```c
+void sortFile(File* file) {
+    // Burbuja simple para ordenar
+    for (int i = 0; i < file->numLines - 1; i++) {
+        for (int j = 0; j < file->numLines - i - 1; j++) {
+            if (strcmp(file->lines[j]->text, file->lines[j+1]->text) > 0) {
+                // Intercambiar punteros (no contenido)
+                Line* temp = file->lines[j];
+                file->lines[j] = file->lines[j+1];
+                file->lines[j+1] = temp;
+            }
+        }
+    }
+}
+```
+
+## Análisis de Entrada
+
+El flujo de programa es:
+
+1. Leer el número de archivos.
+2. Leer los nombres de los archivos y cargarlos en memoria.
+3. Leer el nombre del archivo de comandos.
+4. Abrir y procesar el archivo de comandos.
+
+Un problema que encontré fue con los espacios al final en los archivos de entrada. Si tienes un espacio al final de la línea con el nombre del archivo de comandos, el programa intentará abrir un archivo con ese espacio en el nombre, lo que causará errores. Siempre verifica que tus archivos de entrada no tengan espacios al final.
+
+## Probando tu Solución
+
+1. Prepara tus archivos de prueba: crea `./hw4/file00.in`, `./hw4/file01.in`, y `./hw4/command00.in` con el contenido deseado.
+   - Importante: Asegúrate de que tus archivos de entrada no tengan espacios al final. Puedes usar `cat -e test_input.txt` para verificar (verás un $ al final de cada línea).
+   - Crea un archivo limpio con: `printf "2\n./hw4/file00.in\n./hw4/file01.in\n./hw4/command00.in" > test_input.txt`
+
+2. Compila el programa: `gcc -o program program.c -Wall -Werror`
+
+3. Ejecuta el programa:
    ```bash
-   # Using input redirection - be careful with trailing spaces!
    ./program < test_input.txt
-   
-   # Using a pipe (generally more reliable)
-   printf "2\nfile1.txt\nfile2.txt\ntest_commands.txt\n" | ./program
    ```
-
-4. **Handling Input File Issues**:
-   One common pitfall is trailing spaces in input files. These can cause the program to fail because it searches for incorrectly named files.
-
-   To check for trailing spaces:
+   O mejor aún:
    ```bash
-   cat -e test_input.txt  # Displays $ at line ends - spaces will appear before the $
+   printf "2\n./hw4/file00.in\n./hw4/file01.in\n./hw4/command00.in" | ./program
    ```
 
-   To create a clean input file:
-   ```bash
-   # Creates a file without trailing spaces
-   printf "2\nfile1.txt\nfile2.txt\ntest_commands.txt" > test_input.txt
-   ```
+Por ejemplo, con estos archivos:
+- `./hw4/file00.in`: contiene "Hello", "World", "123!"
+- `./hw4/file01.in`: contiene "This", "is", "CS240", "Class"
+- `./hw4/command00.in`: contiene varios comandos como "PRINT 0", "PRINT_ALL", etc.
 
-5. **Recommended Test Setup**:
-   - `file1.txt`: Simple text file with varied content
-   - `file2.txt`: Another text file with different content
-   - `test_commands.txt`: File containing commands to test functionality
-   - `test_input.txt`: Input specification file
+## Desafíos Comunes
 
-6. **Thorough Testing Strategy**:
-   - Test commands individually to verify basic functionality
-   - Test command combinations to ensure state is maintained correctly
-   - Test edge cases like empty files, long lines, etc.
+1. **Fugas de Memoria**: Olvidar liberar memoria puede causar fugas. Usa herramientas como Valgrind para detectarlas.
+2. **Manejo de Strings**: Manipular strings en C es propenso a errores. Siempre verifica los límites y la asignación de memoria.
+3. **Índices Incorrectos**: Recuerda que los arrays en C comienzan en 0, no en 1.
 
-### Common Challenges and Solutions
+## Valor Educativo
 
-1. **Memory Management**: Ensure proper allocation/deallocation to prevent leaks
-2. **Pointer Arithmetic**: Practice replacing bracket notation with pointer expressions
-3. **String Handling**: Take care with string operations, especially when modifying content
-4. **Command Parsing**: Implement robust parsing to handle command parameters correctly
+Este proyecto me enseñó mucho sobre:
+- Gestión dinámica de memoria en C
+- Manipulación de archivos y strings
+- Diseño modular de programas
 
-### Educational Value
+Espero que estas notas sean útiles para entender mi implementación. ¡Buena suerte con tu propio proyecto!
 
-This assignment offers valuable lessons in:
-- Advanced pointer manipulation in C
-- Dynamic memory management
-- File I/O operations
-- String processing techniques
+## Notas Adicionales
 
-While the restriction against array brackets may seem artificial, it cultivates a deeper understanding of how pointers work under the hood - knowledge that will serve you well in systems programming and beyond.
-
----
-
-## Versión en Español
-
-### Comprensión del Ejercicio
-
-Este ejercicio te desafía a crear un sistema de gestión de archivos capaz de leer múltiples archivos de texto y realizar diversas operaciones sobre ellos. La restricción clave es que debes implementarlo usando **solamente punteros** - sin notación de corchetes para arrays. Esta limitación sirve como una excelente oportunidad para desarrollar un entendimiento más profundo de la gestión de memoria y aritmética de punteros en C.
-
-### Requisitos Fundamentales
-
-1. **Entrada de Archivos**: Leer archivos desde stdin y almacenar su contenido en memoria
-2. **Procesamiento de Comandos**: Ejecutar comandos desde un archivo de comandos especificado
-3. **Implementación Exclusiva con Punteros**: No se permite notación de corchetes (`[]`) en ninguna parte del código
-4. **Implementación de Operaciones**: Desarrollar funciones para imprimir, buscar, ordenar, eliminar texto y concatenar archivos
-
-### Enfoque de Implementación
-
-#### Diseño de Estructuras de Datos
-
-Para esta solución, he diseñado dos estructuras principales:
-
-```c
-typedef struct {
-    char *content;
-    size_t length;
-} Line;
-
-typedef struct {
-    char *path;
-    Line *lines;
-    int line_count;
-} File;
-```
-
-Este diseño ofrece varias ventajas:
-- Cada línea encapsula su contenido y longitud juntos
-- Las líneas pertenecientes al mismo archivo se agrupan lógicamente
-- Los metadatos del archivo (ruta, número de líneas) son fácilmente accesibles
-
-#### Técnicas de Gestión de Memoria
-
-La gestión de memoria es particularmente desafiante cuando se restringe a punteros:
-
-1. **Asignación Dinámica de Memoria**: Necesitarás asignar memoria para rutas de archivo, arrays de líneas y contenido de líneas
-2. **Aritmética de Punteros**: En lugar del familiar `array[i]`, debes usar expresiones como `*(array + i)` o `array + i`
-3. **Limpieza Adecuada**: Para prevenir fugas de memoria, libera cuidadosamente toda la memoria asignada
-
-Un patrón típico para acceder al contenido de una línea se ve así:
-```c
-Line *current_line = (files + i)->lines + j;
-char *line_content = current_line->content;
-```
-
-Los estudiantes suelen tener dificultades con esta sintaxis inicialmente, pero se vuelve más intuitiva con la práctica.
-
-#### Estrategias de Implementación de Comandos
-
-Cada comando se implementa como una función dedicada:
-
-- **PRINT/PRINT_ALL**: Itera a través de archivos/líneas y genera salida con separadores apropiados
-- **PRINT_LONGEST**: Recorre las líneas para encontrar la de longitud máxima
-- **PRINT_LONGEST_FILE**: Compara el número de líneas entre archivos
-- **SEARCH**: Utiliza `strstr()` para localizar subcadenas dentro del contenido
-- **SORT**: Aprovecha `qsort()` con un comparador personalizado
-- **REMOVE**: Crea nuevas cadenas eliminando las ocurrencias
-- **APPEND**: Combina contenidos de archivos con cuidadosa reasignación de memoria
-
-### Pautas de Prueba
-
-Sigue estos pasos para probar exhaustivamente tu implementación:
-
-1. **Compilación**:
-   ```bash
-   gcc file_manager.c -o program
-   ```
-
-2. **Preparación de Archivos de Prueba**:
-   - Crea archivos de texto con contenido variado y líneas de diferentes longitudes
-   - Prepara un archivo de comandos con diversas operaciones para probar
-
-3. **Métodos de Ejecución**:
-   ```bash
-   # Usando redirección de entrada - ¡cuidado con espacios al final!
-   ./program < test_input.txt
-   
-   # Usando una tubería (generalmente más confiable)
-   printf "2\nfile1.txt\nfile2.txt\ntest_commands.txt\n" | ./program
-   ```
-
-4. **Manejo de Problemas con Archivos de Entrada**:
-   Un error común son los espacios al final de las líneas en archivos de entrada. Estos pueden causar que el programa falle porque busca archivos con nombres incorrectos.
-
-   Para verificar espacios al final:
-   ```bash
-   cat -e test_input.txt  # Muestra $ al final de cada línea - los espacios aparecerán antes del $
-   ```
-
-   Para crear un archivo de entrada limpio:
-   ```bash
-   # Crea un archivo sin espacios al final
-   printf "2\nfile1.txt\nfile2.txt\ntest_commands.txt" > test_input.txt
-   ```
-
-5. **Configuración de Prueba Recomendada**:
-   - `file1.txt`: Archivo de texto simple con contenido variado
-   - `file2.txt`: Otro archivo de texto con contenido diferente
-   - `test_commands.txt`: Archivo con comandos para probar funcionalidad
-   - `test_input.txt`: Archivo de especificación de entrada
-
-6. **Estrategia de Prueba Exhaustiva**:
-   - Prueba comandos individualmente para verificar funcionalidad básica
-   - Prueba combinaciones de comandos para asegurar que el estado se mantiene correctamente
-   - Prueba casos extremos como archivos vacíos, líneas largas, etc.
-
-### Desafíos Comunes y Soluciones
-
-1. **Gestión de Memoria**: Asegura una asignación/liberación adecuada para prevenir fugas
-2. **Aritmética de Punteros**: Practica reemplazar notación de corchetes con expresiones de punteros
-3. **Manejo de Cadenas**: Ten cuidado con operaciones de cadenas, especialmente al modificar contenido
-4. **Análisis de Comandos**: Implementa un análisis robusto para manejar correctamente los parámetros de los comandos
-
-### Valor Educativo
-
-Este ejercicio ofrece lecciones valiosas en:
-- Manipulación avanzada de punteros en C
-- Gestión dinámica de memoria
-- Operaciones de entrada/salida de archivos
-- Técnicas de procesamiento de cadenas
-
-Aunque la restricción contra corchetes de arrays pueda parecer artificial, cultiva una comprensión más profunda de cómo funcionan los punteros internamente - conocimiento que te será útil en programación de sistemas y más allá. 
+Algunas cosas que aprendí:
+- El uso de `malloc` y `free` es crucial para evitar fugas de memoria
+- Siempre verifica los valores devueltos por funciones como `fopen` para manejar errores
+- Divide tu código en funciones pequeñas y específicas para facilitar la depuración
